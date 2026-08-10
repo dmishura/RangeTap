@@ -1,0 +1,17 @@
+# Build trees and CMake-generated files
+/build/
+/cmake-build-*/
+/CMakeCache.txt
+/CMakeFiles/
+/Testing/
+
+# Local profiler SDK links and generated profiling results
+/external/
+/profiles/
+
+# Editor and operating-system files
+/.vscode/
+/.idea/
+*.swp
+*~
+.DS_Store
