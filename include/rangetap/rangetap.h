@@ -7,9 +7,10 @@
 #define RNTP_BACKEND_NONE 0
 #define RNTP_BACKEND_NVTX 1
 #define RNTP_BACKEND_ITT 2
+#define RNTP_BACKEND_STREAMLINE 3
 
-#if defined(RNTP_ENABLE_NVTX) && defined(RNTP_ENABLE_ITT)
-#error "Define only one of RNTP_ENABLE_NVTX or RNTP_ENABLE_ITT"
+#if (defined(RNTP_ENABLE_NVTX) + defined(RNTP_ENABLE_ITT) + defined(RNTP_ENABLE_STREAMLINE)) > 1
+#error "Define only one RNTP_ENABLE_* backend flag"
 #endif
 
 #if !defined(RNTP_BACKEND)
@@ -17,6 +18,8 @@
 #define RNTP_BACKEND RNTP_BACKEND_NVTX
 #elif defined(RNTP_ENABLE_ITT)
 #define RNTP_BACKEND RNTP_BACKEND_ITT
+#elif defined(RNTP_ENABLE_STREAMLINE)
+#define RNTP_BACKEND RNTP_BACKEND_STREAMLINE
 #endif
 #endif
 
@@ -28,12 +31,15 @@
 #include <nvtx3/nvToolsExt.h>
 #elif RNTP_BACKEND == RNTP_BACKEND_ITT
 #include <ittnotify.h>
+#elif RNTP_BACKEND == RNTP_BACKEND_STREAMLINE
+#include <streamline_annotate.h>
 #endif
 
 #if RNTP_BACKEND != RNTP_BACKEND_NONE && \
     RNTP_BACKEND != RNTP_BACKEND_NVTX && \
-    RNTP_BACKEND != RNTP_BACKEND_ITT
-#error "RNTP_BACKEND must be RNTP_BACKEND_NONE, RNTP_BACKEND_NVTX, or RNTP_BACKEND_ITT"
+    RNTP_BACKEND != RNTP_BACKEND_ITT && \
+    RNTP_BACKEND != RNTP_BACKEND_STREAMLINE
+#error "RNTP_BACKEND must name a supported RangeTap backend"
 #endif
 
 #ifdef __cplusplus
@@ -49,6 +55,10 @@ typedef struct RNTP_RangeHandle {
 #elif RNTP_BACKEND == RNTP_BACKEND_ITT
 typedef struct RNTP_RangeHandle {
     __itt_id value;
+} RNTP_RangeHandle;
+#elif RNTP_BACKEND == RNTP_BACKEND_STREAMLINE
+typedef struct RNTP_RangeHandle {
+    uint32_t value;
 } RNTP_RangeHandle;
 #else
 typedef struct RNTP_RangeHandle {
@@ -202,6 +212,70 @@ static inline void RNTP_RangeEnd(RNTP_RangeHandle handle) {
 
     __itt_task_end_overlapped(domain, handle.value);
     __itt_id_destroy(domain, handle.value);
+}
+
+#elif RNTP_BACKEND == RNTP_BACKEND_STREAMLINE
+
+#if defined(_MSC_VER)
+#define RNTP__THREAD_LOCAL __declspec(thread)
+#elif defined(__GNUC__) || defined(__clang__)
+#define RNTP__THREAD_LOCAL __thread
+#else
+#define RNTP__THREAD_LOCAL _Thread_local
+#endif
+
+static RNTP__THREAD_LOCAL uint32_t RNTP__StreamlinePushDepth;
+static RNTP__THREAD_LOCAL uint32_t RNTP__StreamlineNextRange = UINT32_C(0x80000000);
+
+static inline uint32_t RNTP__StreamlineColor(RNTP_Color color) {
+    return UINT32_C(0x1B) |
+           ((color >> 8) & UINT32_C(0x0000FF00)) |
+           ((color << 8) & UINT32_C(0x00FF0000)) |
+           ((color << 24) & UINT32_C(0xFF000000));
+}
+
+static inline void RNTP__StreamlineBegin(uint32_t channel, const char *name, RNTP_Color color) {
+    gator_annotate_setup();
+    if (color == 0) {
+        gator_annotate_str(channel, name);
+    } else {
+        gator_annotate_color(channel, RNTP__StreamlineColor(color), name);
+    }
+}
+
+static inline void RNTP_PushMark(const char *name) {
+    RNTP__StreamlinePushDepth += 1;
+    RNTP__StreamlineBegin(RNTP__StreamlinePushDepth, name, 0);
+}
+
+static inline void RNTP_PushMarkEx(const char *name, RNTP_Color color) {
+    RNTP__StreamlinePushDepth += 1;
+    RNTP__StreamlineBegin(RNTP__StreamlinePushDepth, name, color);
+}
+
+static inline void RNTP_PopMark(void) {
+    if (RNTP__StreamlinePushDepth != 0) {
+        gator_annotate_str(RNTP__StreamlinePushDepth, 0);
+        RNTP__StreamlinePushDepth -= 1;
+    }
+}
+
+static inline RNTP_RangeHandle RNTP_RangeBegin(const char *name) {
+    RNTP_RangeHandle handle;
+    handle.value = RNTP__StreamlineNextRange++;
+    RNTP__StreamlineBegin(handle.value, name, 0);
+    return handle;
+}
+
+static inline RNTP_RangeHandle RNTP_RangeBeginEx(const char *name, RNTP_Color color) {
+    RNTP_RangeHandle handle;
+    handle.value = RNTP__StreamlineNextRange++;
+    RNTP__StreamlineBegin(handle.value, name, color);
+    return handle;
+}
+
+static inline void RNTP_RangeEnd(RNTP_RangeHandle handle) {
+    gator_annotate_str(handle.value, 0);
 }
 
 #else

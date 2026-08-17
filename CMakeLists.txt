@@ -45,6 +45,17 @@ if(RNTP_BUILD_TESTS)
         DOC "Intel ITT static or shared library"
     )
 
+    find_path(RNTP_STREAMLINE_INCLUDE_DIR
+        NAMES streamline_annotate.h
+        HINTS "$ENV{HOME}/gator/annotate"
+        DOC "Directory containing the Arm Streamline annotation header"
+    )
+    find_library(RNTP_STREAMLINE_LIBRARY
+        NAMES streamline_annotate
+        HINTS "$ENV{HOME}/gator/annotate"
+        DOC "Arm Streamline annotation library"
+    )
+
     add_executable(rntp_test_none tests/compile/test_compile_none.c)
     target_link_libraries(rntp_test_none PRIVATE RangeTap::RangeTap)
     add_test(NAME rntp_test_none COMMAND rntp_test_none)
@@ -79,5 +90,16 @@ if(RNTP_BUILD_TESTS)
         add_test(NAME rntp_runtime_itt COMMAND rntp_runtime_itt)
     else()
         message(STATUS "Intel ITT SDK not found; skipping the ITT compile test")
+    endif()
+
+    if(RNTP_STREAMLINE_INCLUDE_DIR AND RNTP_STREAMLINE_LIBRARY)
+        find_package(Threads REQUIRED)
+
+        add_executable(rntp_test_streamline tests/compile/test_compile_streamline.c)
+        target_link_libraries(rntp_test_streamline PRIVATE RangeTap::RangeTap ${RNTP_STREAMLINE_LIBRARY} Threads::Threads)
+        target_compile_definitions(rntp_test_streamline PRIVATE RNTP_BACKEND=RNTP_BACKEND_STREAMLINE)
+        target_include_directories(rntp_test_streamline PRIVATE ${RNTP_STREAMLINE_INCLUDE_DIR})
+    else()
+        message(STATUS "Arm Streamline annotations not found; skipping the Streamline compile/link test")
     endif()
 endif()

@@ -5,6 +5,7 @@ RangeTap is a header-only C library that provides a small unified API for profil
 The first supported backends are:
 - NVIDIA NVTX for Nsight-based workflows;
 - Intel ITT for VTune-based workflows;
+- Arm Streamline annotations for Arm Performance Studio workflows;
 - a no-op fallback backend for builds where profiling annotations are disabled.
 
 ## Status
@@ -55,6 +56,7 @@ Preferred backend flags:
 ```c
 -DRNTP_ENABLE_NVTX
 -DRNTP_ENABLE_ITT
+-DRNTP_ENABLE_STREAMLINE
 ```
 
 Low-level backend selector:
@@ -62,16 +64,17 @@ Low-level backend selector:
 ```c
 -DRNTP_BACKEND=RNTP_BACKEND_NVTX
 -DRNTP_BACKEND=RNTP_BACKEND_ITT
+-DRNTP_BACKEND=RNTP_BACKEND_STREAMLINE
 -DRNTP_BACKEND=RNTP_BACKEND_NONE
 ```
 
 If nothing is defined, RangeTap defaults to the no-op backend.
 
-Do not define both `RNTP_ENABLE_NVTX` and `RNTP_ENABLE_ITT`.
+Define at most one `RNTP_ENABLE_*` backend flag.
 
 ## Backend Include Paths
 
-RangeTap is header-only, but backend headers still need to be visible to the consumer build. The test build discovers standard Nsight and VTune installations under `/opt` automatically. Custom locations can be supplied with the `RNTP_NVTX_INCLUDE_DIR`, `RNTP_ITT_INCLUDE_DIR`, and `RNTP_ITT_LIBRARY` CMake cache variables.
+RangeTap is header-only, but backend headers still need to be visible to the consumer build. The test build discovers standard Nsight and VTune installations under `/opt` and Streamline under `$HOME/gator/annotate` automatically. Custom locations can be supplied with the corresponding `RNTP_*_INCLUDE_DIR` and `RNTP_*_LIBRARY` CMake cache variables.
 
 ### NVTX
 
@@ -109,6 +112,20 @@ gcc -Iinclude \
     /opt/intel/oneapi/vtune/<version>/sdk/lib64/libittnotify.a \
     -ldl
 ```
+
+### Arm Streamline
+
+Build the annotation library from the `annotate` directory in the Arm gator source tree, then compile and link with it:
+
+```sh
+gcc -Iinclude \
+    -I$HOME/gator/annotate \
+    -DRNTP_ENABLE_STREAMLINE \
+    your_file.c \
+    -L$HOME/gator/annotate -lstreamline_annotate -pthread
+```
+
+RangeTap initializes the annotation library on first use. Nested push/pop regions use separate Streamline channels. Explicit ranges must begin and end on the same thread because Streamline channels are thread-local. The repository only compile-links this backend on x86; runtime validation requires an Arm target with Streamline capture.
 
 ## Example
 
@@ -150,6 +167,7 @@ The NVTX script produces an `.nsys-rep` file. The VTune script produces a VTune 
 
 - `name` is the only required portable parameter.
 - `color` is best-effort. It is mapped directly for NVTX and currently ignored for ITT.
+- Streamline receives RGB colors; the alpha component is ignored.
 - `tid` is intentionally not part of the v1 public API yet because it does not map cleanly across both backends.
 
 ## Repository Notes
