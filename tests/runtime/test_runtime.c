@@ -26,7 +26,7 @@ static void cpu_work(uint64_t iterations) {
 }
 
 int main(void) {
-    RNTP_RangeHandle whole_run = RNTP_RangeBeginEx(
+    RNTP_RangeHandle whole_run = rntp_range_start_ex(
         "RangeTap runtime smoke test",
         RNTP_COLOR_RGB(0x33, 0x99, 0xFF));
 
@@ -46,6 +46,7 @@ int main(void) {
     RNTP_PopMark();
     RNTP_PopMark();
 
-    RNTP_RangeEnd(whole_run);
-    return result_sink == 0;
+    rntp_range_end(&whole_run);
+    rntp_range_end(&whole_run);
+    return result_sink == 0 || rntp_range_is_open(whole_run);
 }

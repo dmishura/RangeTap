@@ -28,12 +28,13 @@ Core functions:
 
 ```c
 void RNTP_PushMark(const char *name);
-void RNTP_PushMarkEx(const char *name, RNTP_Color color);
+void RNTP_PushMarkEx(const char *name, uint32_t color);
 void RNTP_PopMark(void);
 
-RNTP_RangeHandle RNTP_RangeBegin(const char *name);
-RNTP_RangeHandle RNTP_RangeBeginEx(const char *name, RNTP_Color color);
-void RNTP_RangeEnd(RNTP_RangeHandle handle);
+RNTP_RangeHandle rntp_range_start(const char *name);
+RNTP_RangeHandle rntp_range_start_ex(const char *name, uint32_t color);
+int rntp_range_is_open(RNTP_RangeHandle handle);
+void rntp_range_end(RNTP_RangeHandle *handle);
 ```
 
 Convenience macros:
@@ -43,8 +44,25 @@ RNTP_PUSH("outer");
 RNTP_PUSH_COLOR("inner", RNTP_COLOR_RGB(0xFF, 0x80, 0x00));
 RNTP_POP();
 
-RNTP_RangeHandle range = RNTP_RANGE_BEGIN("step");
+RNTP_RangeHandle range = RNTP_RANGE_START("step");
 RNTP_RANGE_END(range);
+
+/* RNTP_RANGE_END consumes the handle and is safe to call again. */
+RNTP_RANGE_END(range);
+```
+
+Eight predefined opaque colors are available in addition to `RNTP_COLOR_RGB` and
+`RNTP_COLOR_ARGB`:
+
+```c
+RNTP_COLOR_RED
+RNTP_COLOR_GREEN
+RNTP_COLOR_BLUE
+RNTP_COLOR_YELLOW
+RNTP_COLOR_CYAN
+RNTP_COLOR_MAGENTA
+RNTP_COLOR_ORANGE
+RNTP_COLOR_PURPLE
 ```
 
 ## Backend Selection
@@ -135,12 +153,12 @@ Minimal example:
 #include <rangetap/rangetap.h>
 
 int main(void) {
-    RNTP_RangeHandle startup = RNTP_RangeBegin("startup");
+    RNTP_RangeHandle startup = rntp_range_start("startup");
 
     RNTP_PushMark("initialization");
     RNTP_PopMark();
 
-    RNTP_RangeEnd(startup);
+    rntp_range_end(&startup);
     return 0;
 }
 ```
@@ -169,6 +187,8 @@ The NVTX script produces an `.nsys-rep` file. The VTune script produces a VTune 
 - `color` is best-effort. It is mapped directly for NVTX and currently ignored for ITT.
 - Streamline receives RGB colors; the alpha component is ignored.
 - `tid` is intentionally not part of the v1 public API yet because it does not map cleanly across both backends.
+- `rntp_range_is_open` returns zero for a closed handle and a nonzero value for an open handle.
+- `rntp_range_end` accepts a pointer, does nothing for a null or closed handle, and closes and invalidates an open handle.
 
 ## Repository Notes
 
