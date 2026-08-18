@@ -42,6 +42,16 @@
 #error "RNTP_BACKEND must name a supported RangeTap backend"
 #endif
 
+#if RNTP_BACKEND == RNTP_BACKEND_NONE
+#pragma message("RangeTap: selected backend NONE")
+#elif RNTP_BACKEND == RNTP_BACKEND_NVTX
+#pragma message("RangeTap: selected backend NVTX")
+#elif RNTP_BACKEND == RNTP_BACKEND_ITT
+#pragma message("RangeTap: selected backend ITT")
+#elif RNTP_BACKEND == RNTP_BACKEND_STREAMLINE
+#pragma message("RangeTap: selected backend STREAMLINE")
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
