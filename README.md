@@ -223,7 +223,7 @@ int main(void) {
 }
 ```
 
-See [examples/hello_world.c](examples/hello_world.c).
+See [examples/hello_world.c](./examples/hello_world.c).
 
 ## Runtime profiling smoke test
 
