@@ -111,6 +111,7 @@ Custom SDK locations can be supplied as CMake cache variables:
 
 ```sh
 cmake -S . -B build \
+    -DRNTP_BACKEND=ITT \
     -DRNTP_ITT_INCLUDE_DIR=/path/to/itt/include \
     -DRNTP_ITT_LIBRARY=/path/to/libittnotify.a
 ```
@@ -121,8 +122,10 @@ The corresponding variables are `RNTP_NVTX_INCLUDE_DIR`,
 
 ## Manual Backend Selection
 
-Projects that do not use the CMake helper can choose the backend directly with
-compiler definitions.
+Projects that do not use the `rangetap` CMake target can choose the backend
+directly with compiler definitions. These definitions are for manual compiler
+integration; CMake consumers should use the `RNTP_BACKEND` cache variable
+instead.
 
 Preferred backend flags:
 
@@ -220,23 +223,41 @@ int main(void) {
 }
 ```
 
-See [examples/hello_world.c](/home/dmishura/RangeTap/examples/hello_world.c).
+See [examples/hello_world.c](examples/hello_world.c).
 
 ## Runtime profiling smoke test
 
-The `rntp_runtime_nvtx` and `rntp_runtime_itt` targets execute nested annotated regions containing CPU work and sleeps. The complete range lasts approximately 500 milliseconds, so every annotation is visible in a timeline.
+The runtime target for the selected backend executes nested annotated regions
+containing CPU work and sleeps. The complete range lasts approximately 500
+milliseconds, so every annotation is visible in a timeline. Because one
+backend applies to the entire CMake build, NVTX and ITT profiling use separate
+build directories.
 
-Build and collect profiles with:
+Build and collect an NVTX profile with:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRNTP_BACKEND=NVTX
-cmake --build build
+cmake -S . -B build-nvtx \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DRNTP_BACKEND=NVTX
+cmake --build build-nvtx --target rntp_runtime_nvtx
 
-scripts/profile_nvtx.sh build rangetap-nvtx
-scripts/profile_vtune.sh build rangetap-vtune
+scripts/profile_nvtx.sh build-nvtx rangetap-nvtx
 ```
 
-The NVTX script produces an `.nsys-rep` file. The VTune script produces a VTune result directory. Both scripts accept the build path as their first argument and the result path as their second argument.
+Build and collect an ITT/VTune profile with:
+
+```sh
+cmake -S . -B build-itt \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    -DRNTP_BACKEND=ITT
+cmake --build build-itt --target rntp_runtime_itt
+
+scripts/profile_vtune.sh build-itt rangetap-vtune
+```
+
+The NVTX script produces an `.nsys-rep` file. The VTune script produces a
+VTune result directory. Both scripts accept the backend-specific build path as
+their first argument and the result path as their second argument.
 
 ## Current Semantics
 
