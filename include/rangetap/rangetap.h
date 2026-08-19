@@ -13,6 +13,11 @@
 #error "Define only one RNTP_ENABLE_* backend flag"
 #endif
 
+#if defined(RNTP_BACKEND) && \
+    (defined(RNTP_ENABLE_NVTX) || defined(RNTP_ENABLE_ITT) || defined(RNTP_ENABLE_STREAMLINE))
+#error "Define either RNTP_BACKEND or one RNTP_ENABLE_* backend flag, not both"
+#endif
+
 #if !defined(RNTP_BACKEND)
 #if defined(RNTP_ENABLE_NVTX)
 #define RNTP_BACKEND RNTP_BACKEND_NVTX

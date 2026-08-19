@@ -65,9 +65,59 @@ RNTP_COLOR_ORANGE
 RNTP_COLOR_PURPLE
 ```
 
-## Backend Selection
+## CMake Integration
 
-RangeTap supports two ways to choose the backend at compile time.
+When RangeTap is part of the source tree, add it and select the backend for each
+consumer target with `rangetap_link_backend`:
+
+```cmake
+add_subdirectory(external/RangeTap)
+
+add_executable(my_app main.cpp)
+rangetap_link_backend(my_app ITT)
+```
+
+The supported backend names are `NONE`, `NVTX`, `ITT`, and `STREAMLINE`. The
+function finds only the selected backend SDK and supplies the matching compiler
+definition, include directories, and link libraries. Do not set `RNTP_BACKEND`
+separately when using this function.
+
+RangeTap can also be obtained with `FetchContent`:
+
+```cmake
+include(FetchContent)
+
+FetchContent_Declare(
+    RangeTap
+    GIT_REPOSITORY https://github.com/dmishura/RangeTap.git
+    GIT_TAG        main
+)
+FetchContent_MakeAvailable(RangeTap)
+
+add_executable(my_app main.cpp)
+rangetap_link_backend(my_app NVTX)
+```
+
+Pin `GIT_TAG` to a release or commit for reproducible builds. RangeTap tests are
+disabled automatically when the project is included with `add_subdirectory` or
+`FetchContent`.
+
+Custom SDK locations can be supplied as CMake cache variables:
+
+```sh
+cmake -S . -B build \
+    -DRNTP_ITT_INCLUDE_DIR=/path/to/itt/include \
+    -DRNTP_ITT_LIBRARY=/path/to/libittnotify.a
+```
+
+The corresponding variables are `RNTP_NVTX_INCLUDE_DIR`,
+`RNTP_ITT_INCLUDE_DIR`, `RNTP_ITT_LIBRARY`, `RNTP_STREAMLINE_INCLUDE_DIR`, and
+`RNTP_STREAMLINE_LIBRARY`.
+
+## Manual Backend Selection
+
+Projects that do not use the CMake helper can choose the backend directly with
+compiler definitions.
 
 Preferred backend flags:
 
@@ -88,11 +138,13 @@ Low-level backend selector:
 
 If nothing is defined, RangeTap defaults to the no-op backend.
 
-Define at most one `RNTP_ENABLE_*` backend flag.
+Define at most one `RNTP_ENABLE_*` backend flag. Do not combine an
+`RNTP_ENABLE_*` flag with `RNTP_BACKEND`.
 
-## Backend Include Paths
+## Manual Backend Include Paths
 
-RangeTap is header-only, but backend headers still need to be visible to the consumer build. The test build discovers standard Nsight and VTune installations under `/opt` and Streamline under `$HOME/gator/annotate` automatically. Custom locations can be supplied with the corresponding `RNTP_*_INCLUDE_DIR` and `RNTP_*_LIBRARY` CMake cache variables.
+RangeTap is header-only, but backend headers still need to be visible to a
+consumer that does not use `rangetap_link_backend`.
 
 ### NVTX
 
