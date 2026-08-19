@@ -67,40 +67,45 @@ RNTP_COLOR_PURPLE
 
 ## CMake Integration
 
-When RangeTap is part of the source tree, add it and select the backend for each
-consumer target with `rangetap_link_backend`:
+Choose one backend for the entire CMake build with the `RNTP_BACKEND` cache
+variable. It accepts `NONE` (the default), `NVTX`, `ITT`, or `STREAMLINE`;
+values are case-insensitive.
 
-```cmake
-add_subdirectory(external/RangeTap)
-
-add_executable(my_app main.cpp)
-rangetap_link_backend(my_app ITT)
-```
-
-The supported backend names are `NONE`, `NVTX`, `ITT`, and `STREAMLINE`. The
-function finds only the selected backend SDK and supplies the matching compiler
-definition, include directories, and link libraries. Do not set `RNTP_BACKEND`
-separately when using this function.
-
-RangeTap can also be obtained with `FetchContent`:
+RangeTap can be obtained with `FetchContent` and then linked by every target
+that compiles instrumented code:
 
 ```cmake
 include(FetchContent)
 
 FetchContent_Declare(
-    RangeTap
+    rangetap
     GIT_REPOSITORY https://github.com/dmishura/RangeTap.git
     GIT_TAG        main
 )
-FetchContent_MakeAvailable(RangeTap)
+FetchContent_MakeAvailable(rangetap)
 
 add_executable(my_app main.cpp)
-rangetap_link_backend(my_app NVTX)
+target_link_libraries(my_app PRIVATE rangetap)
+```
+
+Configure the consumer build once, for example:
+
+```sh
+cmake -S . -B build -DRNTP_BACKEND=NVTX
 ```
 
 Pin `GIT_TAG` to a release or commit for reproducible builds. RangeTap tests are
 disabled automatically when the project is included with `add_subdirectory` or
-`FetchContent`.
+`FetchContent`. The selected backend applies to every target linked to this
+RangeTap configuration; per-target backend selection is intentionally not
+supported.
+
+The `rangetap` target is an `INTERFACE` target. Using
+`target_link_libraries(... rangetap)` does not add RangeTap object files or a
+compiled RangeTap library. It is CMake's standard mechanism for propagating the
+header include path, internal backend definition, and any selected profiler
+SDK include paths and libraries. Consumers should not define the internal
+`RNTP_BACKEND=RNTP_BACKEND_*` preprocessor value themselves.
 
 Custom SDK locations can be supplied as CMake cache variables:
 
@@ -144,7 +149,7 @@ Define at most one `RNTP_ENABLE_*` backend flag. Do not combine an
 ## Manual Backend Include Paths
 
 RangeTap is header-only, but backend headers still need to be visible to a
-consumer that does not use `rangetap_link_backend`.
+consumer that does not use the `rangetap` CMake target.
 
 ### NVTX
 
@@ -224,7 +229,7 @@ The `rntp_runtime_nvtx` and `rntp_runtime_itt` targets execute nested annotated 
 Build and collect profiles with:
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
+cmake -S . -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRNTP_BACKEND=NVTX
 cmake --build build
 
 scripts/profile_nvtx.sh build rangetap-nvtx
